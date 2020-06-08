@@ -1,0 +1,476 @@
+---
+title: "A Capstone Project on Parkinson's Disease"
+author: "Drishti De"
+date: "08/06/2020"
+
+abstract: "This report is the final part of the final capstone project to obtain the 'Data Science: Capstone certificate' emitted by Harvard University (HarvadX), through edX platform.  The main objective is to create a prediction system using the Parkinson's Disease Dataset from the UCI Machine Learning Repository, and it must be done by training a machine learning algorithm using the inputs in one subset to predict patient status in the validation set."
+
+header-includes: 
+    - \usepackage{float}
+    - \usepackage{caption}
+output:
+    pdf_document:
+        latex_engine: xelatex
+        toc: true
+        toc_depth: 3
+        number_sections: true
+        highlight: pygments
+        keep_tex: true
+font_size: 12pt
+geometry: left=1.5cm, right=1.5cm, top=1.8cm, bottom=1.8cm
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width = 6, fig.height = 6, fig.align = 'center', fig.path = 'img/',
+                      echo = FALSE, warning = FALSE, message = FALSE,
+                      tidy.opts = list(width.cutoff = 80),
+                      tidy = TRUE)
+def.chunk.hook  <- knitr::knit_hooks$get('chunk')
+knitr::knit_hooks$set(chunk = function(x, options) {
+    x <- def.chunk.hook(x, options)
+    ifelse(options$size != 'normalsize',
+           paste0('\\',
+                  options$size,
+                  '\n\n',
+                  x,
+                  '\n\n \\normalsize'),
+           x)
+})
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r package.options, include=FALSE}
+knitr::opts_knit$set(progress = TRUE, verbose = TRUE)
+```
+
+```{r load.dataset, include=FALSE}
+
+#Loading Parkinson's Disease CSV data
+pd_data <- read.csv("E:/For_Career/R Projects/My R files/Capstone - Parkinson's Disease/Data/PD_data.csv")
+pd_data$status <- as.factor(pd_data$status)
+print(pd_data)
+```
+\pagebreak 
+
+# Acknowlegdement
+
+I express my humble gratitude to **Harvard University** and **EdX platform** for providing a specialization on **HarvardX Professional Certificate in Data Science** which includes the final course on **Data Science : Capstone** and aiding learners like me to learn deep about Data Science by utilizing course contents and project work in order to receive globally recognized certification for the same.
+
+I also extend my sincere thanks to the **University of Oxford** and **UCI Machine Learning Repository** for the **Oxford Parkinson's Disease Detection Dataset** that I have chosen for my final Capstone project, keeping in mind the rules to be followed while choosing a project for Data Science: Capstone. 
+
+\pagebreak 
+
+# Project Executive Summary
+
+The main purpose of this project is to develop a machine learning algorithm for predicting people with Parkinson's Disease using the **Parkinsons Data Set** from UCI Machine Learning Repository as given in the link here <https://archive.ics.uci.edu/ml/machine-learning-databases/parkinsons/>.
+
+The predictive analysis system is created by making sure there are no null values in the dataset and that all the values are unique (ensuring no redundancy) in the dataset used. We have used Principal Component Analysis (PCA) for dimensionality reduction and other tools for attribute-correlation and Variable importance to aid in the efficient construction of the classification-based prediction system. Lastly, we have used random forest model with COREModel functionality to train and test our data. 
+
+Since RMSE Metric is not applicable for classification-based systems, therefore different metrics like **accuracy, precision etc.** to evaluate my prediction model in this case.
+
+
+# Introduction
+
+## Parkinson's Disease
+
+**Definition:** \
+According to Oxford, Parkinson's Disease is a progressive disease of the central nervous system, and is marked by tremor, muscular rigidity, and slow, imprecise movement, chiefly affecting the middle-aged and elderly people.
+
+It can last for years or even be lifelong. The complications of a person dealing with Parkinson's Disease include: thinking difficulties, emotional changes and depression, swallowing problems, chewing and eating problems, sleep disorders, bladder problems, constipation and may also prove fatal.
+
+## Selected Dataset
+
+The Dataset used in this Capstone Project is the **Parkinsons Data Set** from UCI Machine Learning Repository. It has been uploaded to UCI Machine Learning Repository from the Oxford Parkinson's Disease Detection Dataset.\
+
+
+**The information about this dataset is given below:**
+
+Data Set Characteristics: Multivariate \
+Number of Instances: 197 \
+Area: Life \
+Attribute Characteristics: Real \
+Number of Attributes: 23 \
+Associated Tasks: Classification
+
+**Attribute Information:**
+
+Matrix column entries (attributes): \
+name - ASCII subject name and recording number \
+MDVP:Fo(Hz) - Average vocal fundamental frequency \
+MDVP:Fhi(Hz) - Maximum vocal fundamental frequency \
+MDVP:Flo(Hz) - Minimum vocal fundamental frequency \
+MDVP:Jitter(%),MDVP:Jitter(Abs),MDVP:RAP,MDVP:PPQ,Jitter:DDP - Several \
+measures of variation in fundamental frequency \
+MDVP:Shimmer,MDVP:Shimmer(dB),Shimmer:APQ3,Shimmer:APQ5,MDVP:APQ,Shimmer:DDA - Several measures of variation in amplitude \
+NHR,HNR - Two measures of ratio of noise to tonal components in the voice \
+status - Health status of the subject (one) - Parkinson's, (zero) - healthy \
+RPDE,D2 - Two nonlinear dynamical complexity measures \
+DFA - Signal fractal scaling exponent \
+spread1,spread2,PPE - Three nonlinear measures of fundamental frequency variation 
+
+\pagebreak 
+
+**A portion of the Parkinson's Disease Dataset is therefore shown below:**
+
+```{r data, echo=FALSE}
+library(knitr)
+kable(pd_data[1:5,1:6], caption = "Parkinson's Disease Data")
+```
+
+```{r data.initial.analysis, include=FALSE}
+
+#no. of rows in pd_data
+nrow(pd_data)  #195
+
+#no. of columns in pd_data
+ncol(pd_data)   #24
+
+#column names in Parkinson's Disease Data
+colnames(pd_data)
+
+#checking no. of null values in each column
+colSums(is.na(pd_data)) #no null values
+
+#checking entries with status 0 and status 1
+
+#checking only 'status' column 
+#using a new variable called 'status_val'
+status_val<-pd_data[,c("status")] 
+print(status_val)
+
+#number of entries with status = 0 i.e. Healthy People
+sum(status_val==0) #48
+
+#number of entries with status = 1 i.e. People with Parkinson's Disease
+sum(status_val==1) #147
+
+#Total 195
+
+record_name <- pd_data[,c("name")]
+uniq_record_name <- unique(record_name)
+length(uniq_record_name)   #195; equal to the number of entries in the data
+
+#Therefore, all the objects in column "name" (i.e. people tested for Parkinson's) and hence their observations for parkinson's are unique.
+```
+## Initial Analysis on the Dataset
+
+Upon initial analysis of the Parkinson's Disease Dataset we see: \
+1. There are no null values in the Parkinson's Dataset \
+2. All the record inputs in the dataset are unique. \
+3. There are 48 healthy people and 147 patients with Parkinson's Disease; a total of 195 entries (as shown in the figure below).
+```{r status.plot,echo=FALSE, fig.width=6, fig.height=4, fig.cap="Barplot of Patient Healthy to Patient ratio"}
+barplot(table(pd_data[,18]), xlab = "status (0 = Healthy, 1 = with Parkinsons Disease)", ylab = "No. of patients")
+```
+\pagebreak 
+
+# Main Parkinsons Data Analysis
+
+This section includes the different techniques performed to analyze the Parkinson's Data. These techniques include: \
+1. Correlation \
+2. Understanding Variable Importance \
+3. Principal Component Analysis 
+
+This section also includes all the required packages to perform analysis and prediction on the Parkinson's Disease Dataset.
+
+## Required Packages \
+
+**The packages used in this Capstone Project are listed below:** 
+
+1. *dplyr*: grammar for data manipulation \
+2. *corrplot*: graphical display of a correlation matrix \
+3. *mlbench*: framework for distributed Machine Learning \
+4. *caret*: Classification And REgression Training; streamline model training \
+5. *randomForest*: Breiman annd Cutler's Random Forests for Classification and Regression \
+6. *factoextra*: Extract and Visualize results of Multivariate Data Analyses \
+7. *FactoMineR*: Exploratory Data Analysis Methods to summarize, visualize and describe datasets \
+8. *CORElearn*: Classification, Regression and Feature Evaluation; R port of data mining system \
+9. *rmarkdown*: Convert R Markdown documents into a variety of formats \
+10. *knitr*: Dynamic report generation with R \
+
+## Correlation of Dataset Attributes
+
+### Definition, Usage and Formula
+
+In statistics, **correlation** (or dependence) is any statistical relationship between two random variables. It also may be defined as the degree to which a pair of variables are linearly related.
+
+The type of correlation coefficient used here is the **Spearman correlation coefficient** and it may be defined as:
+
+> *"The Pearson correlation coefficient between the rank variables."*
+
+**Pearson's Correlation Coefficient Formula:**
+
+The Pearson's correlation coefficient is used between rank variables to find out the Spearman correlation coefficient. The formula of Pearson's  correlation coefficient is given below: 
+
+$r = \frac{n(\sum xy)-(\sum x)(\sum y)}{\sqrt{[n \sum x^2 - (\sum x)^2][n \sum y^2 - (\sum y)^2]}}$  
+
+where, 'n' is the sample size and 'x','y' are the n raw scores in the sample data.
+
+**Spearman Correlation Coefficient Formula:**
+
+The formula for Spearman Correlation Coefficient to find out correlation between data attributes is given below:
+
+$r_s = \rho_{rg_X , rg_Y} = \frac{cov(rg_X, rg_Y)}{\sigma_{rg_X},\sigma_{rg_Y}}$
+
+where, $\rho$ denotes the Pearson Correlation Coefficient applied to rank variables, ${cov(rg_X, rg_Y)}$ is the covariance of the rank variables, $\sigma_{rg_X}$ and $\sigma_{rg_Y}$ are the standard deviations of the rank variables.
+
+\pagebreak
+
+### Finding Correlation between attributes of Parkinson's Disease Data
+
+Here, in order to find the correlation between other numeric attributes we had to remove the column 'name' from the data, hence, decresing the new data to only 23 attributes.
+
+With this data, using *Spearman correlation coefficient*, we create a new correlation data called 'cor_data' and with this data we create the correlation matrix.
+
+```{r correlation, include=FALSE}
+library(dplyr)
+
+#removing the name attribute for correlation
+pd_data1 <- pd_data[c(2:24)]
+pd_data1
+colnames(pd_data1)
+
+#creating correlation data
+pd_data2 <- transform(pd_data1, status = as.numeric(status))
+cor_data <- cor(pd_data2, method = c("spearman"))
+
+#creating correlation matrix
+cor_matrix <- round(cor(cor_data),2)
+```
+Using the correlation matrix created, we plot the correlation between attributes as follows: \
+```{r corr.plot, echo=FALSE, fig.cap= "Correlation plot between attributes"}
+library(corrplot)
+corrplot::corrplot(cor_matrix, method = "circle")
+
+```
+In order to get better insight, we now plot the correlation between attributes by including both correlation values and p-values in the correlation plot as follows:
+
+
+```{r function for new corr.plot, include=FALSE}
+cor.test.mat <- function(mat){
+  n <- ncol(mat)
+  pmat <- matrix(0, nrow = n, ncol = n)
+  for(i in 1:(n-1)){
+    for(j in (i+1):n){
+      pmat[i,j] <- cor.test(mat[,i], mat[,j], method="pearson")$p.value
+    }
+  }
+  pmat[lower.tri(pmat)] <- t(pmat)[lower.tri(pmat)] #fill lower triangle with upper triangle
+  return(pmat)
+}  
+```
+
+```{r new corr.plot, echo=FALSE, fig.width= 10, fig.height=10, fig.cap= "Correlation plot with corr-values and p-values"}
+#compute matrix of p-values
+pvals <- cor.test.mat(cor_data)
+
+corrplot::corrplot(cor(cor_data), method="number", order="hclust", addrect=2, diag=F)
+corrplot::corrplot(cor(cor_data), p.mat = pvals, sig.level=0, insig = "p-value", method="ellipse", order="hclust", 
+         type="upper", addrect=2, tl.pos = "n", cl.pos="n", diag=F, add=T)
+```
+\pagebreak
+To understand highly correlated features easily, we used the function  'findCorrelation()' to find correlation from our already created correlation matrix with a cut-off of 0.9 and printing those attribute/column values as below:
+
+```{r highly correlated attributes, echo = FALSE}
+library(mlbench)
+library(caret)
+
+#printing attrbutes that are highly correlated with a cutoff of 0.9
+highlyCorrelated <- findCorrelation(cor_matrix, cutoff=0.9)
+print(highlyCorrelated)
+#The highly correlated attribute no.s are: 23 20  7  4  5 13  6  8 10  9 12 11 14 16  1
+```
+i.e., PPE, spread 1, MDVP.PPQ, MDVP.Jitter..., MDVP.Jitter.Abs., MDVP.APQ, MDVP.RAP, Jitter.DDP, MDVP.Shimmer.dB., MDVP.Shimmer, Shimmer APQ5, Shimmer APQ3, Shimmer DDA, HNR, MDVP.Fo.Hz
+
+## Understanding the importance of variables in the dataset
+
+Now taking into account the prediction of patient status (0 = healthy, 1 = with Parkinson's Disease), we calculate the importance of variables in predicting the patient status in the Parkinson's Dataset.
+
+This is done by creating a Feature Model using a classifier and specifying the dependent viariable and the data to be used. This Feature Model is then fed to the 'varImp()' function to find the importance of the variables. We can also view the plot of variable importance using the 'varImpPlot()' function.
+
+**The importance of variables according to dependent attribute 'status' in Parkinson's Disease Dataset can be shown in the plot given below:**
+
+```{r variable.importance , include = FALSE}
+#converting list "pd_data1" to data frame
+pd_data3 <- as.data.frame(pd_data1)
+
+#fitting a logistic regression model
+library(randomForest)
+feature_model = randomForest(pd_data$status~., data=pd_data3)
+
+#estimate variable importance
+importance <- varImp(feature_model)
+
+#summarize importance
+print(importance)
+```
+
+```{r plot varImp, echo= FALSE, fig.width=7, fig.height=6, fig.cap="Plot for Importance of Variables"}
+#plot importance
+varImpPlot(feature_model) 
+```
+\pagebreak
+
+## Principal Component Analysis (PCA)
+
+### Definition
+
+**Principle Component Analysis (PCA)** is a mathematical procedure that transforms a number of (possibly) correlated variables into a smaller number of uncorrelated variables called **Principal Components**. \
+It is a method of analysis which involves finding the linear combination of a set of variables that has maximum variance and removing its effect, repeating this successively.
+
+PCA is defined as an 'orthogonal linear transformation' that transforms the data to a new coordinate system  such that the greatest variance by some scalar projection of the data comes to lie on the first coordinate (called the first principal component), the second greatest variance on the second coordinate, and so on.
+
+### Applying PCA on Parkinson's Disease Dataset
+
+Here we apply PCA on Parkinson's Disease Dataset by ensuring that the data is centered and scaled.
+
+**The summary of the Principal Component Analysis done on the dataset is shown below:**
+
+```{r principal component analysis, echo=FALSE}
+library(factoextra)
+library(FactoMineR)
+
+#Doing Principle Component Analysis on the Dataset
+pd.pca <- prcomp(pd_data2, center = TRUE, scale = TRUE)
+summary(pd.pca)
+```
+
+
+**The 2D-Plot for PCA on a 23 feature dataset is shown below:**
+
+```{r 2D - PCA plot , echo=FALSE, fig.width=4, fig.height=3}
+#2D PCA-plot from 24 feature Parkinson's Disease Dataset
+fviz_pca_ind(pd.pca, geom.ind = "point", pointshape = 21, 
+             pointsize = 2, 
+             fill.ind = pd_data$status, 
+             col.ind = "black", 
+             palette = "jco", 
+             addEllipses = TRUE,
+             label = "var",
+             col.var = "black",
+             repel = TRUE,
+             legend.title = "Patient Status") +
+  ggtitle("2D PCA-plot from 24 feature dataset") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+\pagebreak
+
+```{r variable contribution, include=FALSE}
+# Results for Variables
+pd.pca.var <- get_pca_var(pd.pca)
+pd.pca.var$coord          # Coordinates
+pd.pca.var$contrib        # Contributions to the PCs
+```
+
+**Obtaining the eigenvalues, variance percentage and cumulative variance percentage for different dimensions or principal components:**
+
+```{r eigenvalues, echo=FALSE}
+#Obtaining eigenvalues
+pd.eig.val <- get_eigenvalue(pd.pca)
+pd.eig.val
+```
+**Plotting cos2 of variables to first 3 dimensions/PCs**
+```{r cos2 of var in 3 PCs, echo=FALSE, fig.width = 5, fig.height=4, fig.cap="cos2 QoR of Variables in first 3 PCs"}
+library(ellipsis)
+fviz_cos2(pd.pca, choice = "var", axes = 1:3)
+```
+
+\pagebreak
+
+**Checking Quality of Representation of Variables in PCs on the factor map:**
+
+```{r Quality of Representation , echo = FALSE, fig.width=5, fig.height=4, fig.cap="Variable QoR in Factor Map"}
+#checking quality on the factor map
+fviz_pca_var(pd.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE              #Avoid text overlapping
+)
+```
+
+
+In Figure 6, the cos2 of Variables to both the dimensions show the following:
+
+1. A high cos2 indicates a good representation of the variable on the Principal Component. In this case, the variable is positioned close to the circumference of the correlation circle. \
+2. A low cos2 value indicates that the variable is not perfectly represented by the PCs. In this case, the variable is close to the centre of the correlation circle.\
+Hence, the variable with high cos2 value is more important for interpretation in the multivariate data.
+
+\pagebreak
+
+# Prediction Model
+
+In order to predict the people in 2 categories i.e., 0 for healthy and 1 for patients with Parkinson's Disease, our classification model utlizes **Random Forest Classifier** of the **CORElearn Package** to accurately predict the validation/test data after the model has been trained with 70% of the dataset in random fashion.
+
+Here, we have trained our model against the attribute 'status' (dependent variable) with 136 inputs of our training data using **CoreModel** for **Random Forest Classifier** and then tested our model with 45 inputs of the test/validation data to obtain our results.
+
+```{r prediction, include=FALSE}
+#Train-Test split
+trainIdxs <- sample(x=nrow(pd_data1), size=0.7*nrow(pd_data1), replace=FALSE)
+testIdxs <- c(1:nrow(iris))[-trainIdxs]
+
+library(CORElearn)
+
+modelRF <- CoreModel(status~., pd_data1[trainIdxs,], model="rf",
+                     selectionEstimator="MDL",minNodeWeightRF=5,
+                     rfNoTrees=100, maxThreads=1)
+
+print(modelRF) # simple visualization, test also others with function plot
+
+# prediction on testing set
+Y_Pred <- predict(modelRF, pd_data1[testIdxs,], type="both") 
+```
+
+**Comparison of Real and Predicted counts for patient status:**
+```{r real count status plot, echo=FALSE, fig.width = 4, fig.height=3, fig.cap="Real Count of Patient Status"}
+Y_Test <- as.data.frame(pd_data1[testIdxs,])
+Pred <- as.data.frame(Y_Pred$class)
+barplot(table(Y_Test[,17]), xlab = "status (0 = healthy, 1 = with Parkinsons)", ylab = "Real_Count")
+```
+
+```{r predicted count status plot, echo = FALSE, fig.width = 4, fig.height=3, fig.cap="Predicted Count of Patient Status"}
+barplot(table(Pred), xlab = "status (0 = healthy, 1 = with Parkinsons)", ylab = "Prediction_Count")
+```
+\pagebreak
+
+# Classification Evaluation Metrics
+
+There are different classification evaluation metrics to evaluate classification models like Acuuracy, Precision, Recall, F1 score, etc. \
+Here, we have used the 'modelEval()' function from the CORElearn package to evaluate the classification-based prediction system. \
+
+**The evaluation of classification-based prediction system is as shown below:**
+
+*i. Prediction Matrix (confusion matrix)*
+```{r prediction matrix, echo=FALSE}
+mEval <- modelEval(modelRF, pd_data1[["status"]][testIdxs], Y_Pred$class, Y_Pred$prob)
+#print(mEval)
+mEval$predictionMatrix
+```
+*ii. Accuracy*
+```{r model evaluation, echo=FALSE}
+mEval$accuracy
+```
+*iii. AUC*
+```{r AUC, echo=FALSE}
+mEval$AUC
+```
+*iv. Recall*
+```{r F1 score, echo=FALSE}
+mEval$recall
+```
+*v. Precision*
+```{r Precision, echo=FALSE}
+mEval$precision
+```
+*vi. F1 Score*
+```{r F1 Score, echo=FALSE}
+mEval$Fmeasure
+```
+\pagebreak
+
+# Citation
+(for using the dataset) \
+'Exploiting Nonlinear Recurrence and Fractal Scaling Properties for Voice Disorder Detection', \
+Little MA, McSharry PE, Roberts SJ, Costello DAE, Moroz IM. \
+BioMedical Engineering OnLine 2007, 6:23 (26 June 2007) \
+
+------------------------------------------------------------------------
